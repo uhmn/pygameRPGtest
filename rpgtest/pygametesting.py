@@ -1,11 +1,13 @@
-
 import os
 import pygame as pg
 import vec
 import random
 import sound
 
-
+from PodSixNet.Connection import ConnectionListener, connection
+import PodSixNet.Channel
+import PodSixNet.Server
+ 
 if not pg.font:
     print("Warning, fonts disabled")
 if not pg.mixer:
@@ -32,7 +34,7 @@ def load_image(name, colorkey=None, scale=1):
 
 
 
-    
+Connecteds = []
 TileSprites = [("strawberry.png","Tile",0), 
                ("wall.png","Tile",1), 
                ("wall2.png","Tile",1), 
@@ -52,11 +54,12 @@ keysPressed = 0
 CamX = 0
 CamY = 0
 ViewMode = "Editor"
-ScreenX = 1280
+ScreenX = 1080
 ScreenY = 480
 Mouseover = "Game"
 Gravity = 9.8
 ActiveMenuItem = None
+GameServer = False
     
 def InputEvents(keys, CreatureControlLink):
     going = True
@@ -189,6 +192,7 @@ class Ents():
           "EditorIcon": EditorIcon(),
           "SaveButton": SaveButton(),
           "LoadButton": LoadButton(),
+          "StartButton": StartButton(),
           "Tile": Tile(),
           "DeleteBrush": DeleteBrush(),
           "FloorItem": FloorItem(),
@@ -281,7 +285,7 @@ class Ents():
         for ent in self.allparticles:
             del ent
         self.allparticles = []
-    def remove(self, ent):
+    def remove(self, ent): #Don't use this to remove entities, use the entities' remove function instead.
         if ent in self.allsprites: self.allsprites.remove(ent)
         if ent in self.allparticles: self.allparticles.remove(ent)
         i = 0
@@ -295,8 +299,42 @@ class Ents():
         if ent in self.menulayer1: self.menulayer1.remove(ent)
         if ent in self.menulayer2: self.menulayer2.remove(ent)
         if ent in self.menulayer3: self.menulayer3.remove(ent)
+        
+class MultiplayerClient(ConnectionListener):
+    def __init__(self):
+        pass
+    def update(self):
+        connection.Pump()
+        self.Pump()
+        connection.Send({"action" : "movement", "position" : ents.CreatureControlLink.position})
+    def connectToServer(self, Adress):
+        self.Connect(Adress)
+    def Network_NiggaBalls():
+        #smash
+        pass
     
+Client = MultiplayerClient()
 ents = Ents()
+
+
+class ClientChannel(PodSixNet.Channel.Channel):
+    def Network(self, data):
+        pass
+    def Network_movement(self, data):
+        Connecteds[0].setPos(data["position"])
+ 
+class BoxesServer(PodSixNet.Server.Server):
+ 
+    channelClass = ClientChannel
+ 
+    def Connected(self, channel, addr):
+        print('new connection:', channel)
+        newplayer = ents.create("Creature")
+        newplayer.setPos((200, 200)) 
+        Connecteds.append(newplayer)
+        
+
+
 #Use control F to find specific entities lol
 class Particle(pg.sprite.Sprite):
     
@@ -694,7 +732,7 @@ class SaveLoadButton(Menu):
     def pressed(self):
         pass
     def onTick(self):
-        if self.viewmode == "Editor":
+        if ViewMode == "Editor":
             if vec.collision(self.rect.center, 16, pg.mouse.get_pos()):
                 if keys[0] == True:
                     self.pressed()
@@ -821,6 +859,16 @@ class LoadButton(SaveLoadButton):
         
         f.close()
         print("Loaded")
+class StartButton(Menu):
+    def initialize(self):
+        ents.menulayer1.add(self)
+        self.pressed = False
+    def isPressed(self):
+        return self.pressed
+    def onTick(self):
+        if keys[0] == True:
+            if (self.rect.collidepoint(pg.mouse.get_pos())):
+                self.pressed = True
         
 class MenuItem(Menu):
     def onTick(self):
@@ -1052,7 +1100,7 @@ class FloorItem(Particle):
         self.height = 0.5
         self.velocity = vel
         self.setOnFloor(False)
-        self.spinSpeed = random.random()*32-16
+        self.spinSpeed = random.randint(-16, 16)
     def setSprite(self, image1):
         self.original = Particle.setSprite(self, image1)
     def spin(self):
@@ -1126,15 +1174,17 @@ def main():
     pg.init()
     screen = pg.display.set_mode((ScreenX, ScreenY), pg.SCALED)
     pg.display.set_caption("2D Game Test")
+    icon, iconrect = load_image("door7.png", 0)
+    pg.display.set_icon(icon)
     pg.mouse.set_visible(False)
 
     background = pg.Surface(screen.get_size())
     background = background.convert()
-    background.fill((0, 0, 0))
+    background.fill((245, 245, 245))
 
     if pg.font:
         font = pg.font.Font(None, 64)
-        text = font.render("Test", True, (10, 10, 10))
+        text = font.render("2D RPG Demo", True, (10, 10, 10))
         textpos = text.get_rect(centerx=background.get_width() / 2, y=10)
         background.blit(text, textpos)
 
@@ -1142,8 +1192,53 @@ def main():
     pg.display.flip()
     
     ents.create("MousePointer")
-
     clock = pg.time.Clock()
+    
+    serverbutton = ents.create("StartButton")
+    serverbutton.setSprite("startserver.png")
+    serverbutton.setPosDimensionless((0.5,0.2))
+    
+    clientbutton = ents.create("StartButton")
+    clientbutton.setSprite("startclient.png")
+    clientbutton.setPosDimensionless((0.5,0.3))
+    
+    setserver = False
+    
+    going = True
+    introrunning = True
+    while introrunning and going:
+        clock.tick(60)
+        
+        if serverbutton.isPressed():
+            introrunning = False
+            setserver = True
+        elif clientbutton.isPressed():
+            introrunning = False
+            setserver = False
+        going = InputEvents(keys, ents.CreatureControlLink)
+        
+        ents.findMouseover()
+        ents.update()
+        
+        screen.blit(background, (0, 0))
+        ents.draw(screen)
+        pg.display.flip()
+        
+    serverbutton.remove()
+    clientbutton.remove()
+    
+    
+    background.fill((0, 0, 0))
+
+    if pg.font:
+        font = pg.font.Font(None, 64)
+        text = font.render("v0.0.1", True, (10, 10, 10))
+        textpos = text.get_rect(centerx=background.get_width() / 2, y=10)
+        background.blit(text, textpos)
+
+    screen.blit(background, (0, 0))
+    pg.display.flip()
+
     pt1 = ents.create("Vessel")
     pt1.setPos((500,400))
     pt2 = ents.create("EditorEnt")
@@ -1157,11 +1252,11 @@ def main():
     panel1 = ents.create("Menu")
     panel1.setSprite("smallmenubox.png")
     panel1.setViewMode("1st")
-    panel1.setPosDimensionless((0.5,0.9))
+    panel1.setPosDimensionless((0.5-(40/ScreenX),0.9))
     panel1text = ents.create("MenuB")
     panel1text.setSprite("lefthandText.png")
     panel1text.setViewMode("1st")
-    panel1text.setPosDimensionless((0.5,0.9))
+    panel1text.setPosDimensionless((0.5-(40/ScreenX),0.9))
     
     panel2 = ents.create("Menu")
     panel2.setSprite("smallmenubox.png")
@@ -1176,7 +1271,7 @@ def main():
     for chunk in TileSprites:
         ico = ents.create("EditorIcon")
         ico.setproperties(load_iter)
-        ico.setPosDimensionless((0.55+(load_iter*0.03), 0.85))
+        ico.setPosDimensionless((0.55+(load_iter*0.035), 0.85))
         load_iter += 1
     
     sbutton = ents.create("SaveButton")
@@ -1197,14 +1292,25 @@ def main():
     testitem2 = ents.create("Gun")
     testitem2.putInside(plytest, 1)
     
-    going = True
+    host, port="localhost", 8000
+    boxesServe = BoxesServer(localaddr=(host, int(port)))
+    
+    if (setserver): 
+        GameServer = True
+    else: 
+        GameServer = False
+        Client.connectToServer(("localhost", 8000))
+    
     while going:
         clock.tick(60)
+        if (GameServer): 
+            boxesServe.Pump()
         
         going = InputEvents(keys, ents.CreatureControlLink)
         
         ents.findMouseover()
         ents.update()
+        Client.update()
         
         screen.blit(background, (0, 0))
         ents.draw(screen)
