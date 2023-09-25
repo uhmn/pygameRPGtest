@@ -33,8 +33,9 @@ def load_image(name, colorkey=None, scale=1):
     return image, image.get_rect()
 
 
-
-Connecteds = []
+ConnectedCreatures = []
+ConnectedsList = []
+LastChangedEntitites = []
 TileSprites = [("strawberry.png","Tile",0), 
                ("wall.png","Tile",1), 
                ("wall2.png","Tile",1), 
@@ -60,6 +61,8 @@ Mouseover = "Game"
 Gravity = 9.8
 ActiveMenuItem = None
 GameServer = False
+CellSize = 50
+
     
 def InputEvents(keys, CreatureControlLink):
     going = True
@@ -168,6 +171,7 @@ class Ents():
         self.EditorEntType = "Tile"
         self.EditBrush = None
         self.entCount = 0
+        self.GameTick = 0
         def makeLayer():
             layer = pg.sprite.RenderPlain()
             self.AllParticleLayers.append(layer)
@@ -211,6 +215,7 @@ class Ents():
     
     def update(self):
         self.allsprites.update()
+        self.GameTick += 1
         
     def draw(self, screen):
         for layer in self.AllParticleLayers:
@@ -239,7 +244,7 @@ class Ents():
                     return blocks
             return [None,None]
         else:
-            cIndex = self.findCellIndexOfPos(pos, vessel.position, 25)
+            cIndex = self.findCellIndexOfPos(pos, vessel.position, CellSize)
             ent1 = self.findEntAtCellIndex(cIndex, vessel, 0)
             ent2 = self.findEntAtCellIndex(cIndex, vessel, 1)
             return [ent1, ent2]
@@ -300,40 +305,221 @@ class Ents():
         if ent in self.menulayer2: self.menulayer2.remove(ent)
         if ent in self.menulayer3: self.menulayer3.remove(ent)
         
+ents = Ents()
+
+def LoadTiles():
+    print("Loading...")
+    ents.deleteAll()
+    f = open(os.path.join(data_dir, "savefile.txt"), "r")
+    savestring = f.read()
+    loadtablesuper = []
+    loadtable = []
+    loadtablesub = ""
+    chunklen = 0
+    chunklenstring = ""
+    marker = 1
+    submarker = 0
+    for letter in savestring:
+        if marker == 1:
+            marker = 2
+        elif marker == 2:
+            if not letter == "}":
+                if letter == "[":
+                    marker = 3
+                    chunklen = 0
+                    chunklenstring = ""
+            else:
+                marker = 1
+                loadtablesuper.append(loadtable)
+                loadtable = []
+        elif marker == 3:
+            if not letter == "]":
+                chunklenstring = chunklenstring + letter
+            else:
+                marker = 4
+                submarker = 0
+                chunklen = int(chunklenstring)
+                loadtablesub = ""
+        elif marker == 4:
+            submarker = submarker + 1
+            loadtablesub = loadtablesub + letter
+            if submarker == chunklen:
+                loadtable.append(loadtablesub)
+                marker = 2
+    i = ents.entCount
+    replacements = {}
+    for table in loadtablesuper:
+        table[1] = int(table[1])
+        if table[1] in replacements:
+            table[1] = replacements[table[0]]
+        else:
+            i = i + 1
+            replacements.update({table[1]: i})
+            table[1] = i
+            ents.incrementEntCounter()
+    for table in loadtablesuper:
+        i2 = 0
+        for letter in table[5]:
+            if letter == "1":
+                table[i2] = int(table[i2])
+                if table[i2] in replacements:
+                    table[i2] = replacements[table[i2]]
+            elif letter == "L":
+                marker = 1
+                tablelist = []
+                chars = ""
+                i = 0
+                for char in table[i2]:
+                    if marker == 0:
+                        if char == ">":
+                            tablelist.append(int(chars))
+                            chars = ""
+                        else:
+                            i += 1
+                            chars = chars + char
+                    elif marker == 1:
+                        marker = 0
+                tablelist.append(int(chars))
+                i3 = 0
+                while i3 < len(tablelist):
+                    if tablelist[i3] in replacements:
+                        tablelist[i3] = replacements[tablelist[i3]]
+                    i3 += 1
+                table[i2] = tablelist
+                    
+            i2 += 1
+    spawnedEnts = []
+    for table in loadtablesuper:
+        ent = ents.create(table[0])
+        ent.calculatePosition()
+        ent.setSID(int(table[1]))
+        spawnedEnts.append(ent)
+    i = 0
+    while i < len(loadtablesuper):
+        ent = spawnedEnts[i]
+        table = loadtablesuper[i]
+        ent.enterData(table)
+        if ent.classname == "Creature":
+            ents.CreatureControlLink = ent
+        i += 1
+    
+    i = 0
+    while i < len(loadtablesuper):
+        ent = spawnedEnts[i]
+        table = loadtablesuper[i]
+        ent.setParent(ents.SIDToEnt(int(table[6])))
+        i += 1
+    
+    f.close()
+    ents.GameTick = 0
+    print("Loaded")
+def SaveTiles():
+    print("Saving...")
+    savetable = ents.getAllTable()
+    savestring = ""
+    for table in savetable:
+        tablestring = ""
+        for var in table:
+            chunk = str(var)
+            chunklen = str(len(chunk))
+            tablestring = tablestring + "[" + chunklen + "]" + chunk
+        savestring = savestring + "{" + tablestring + "}"
+    f = open(os.path.join(data_dir, "savefile.txt"), "w")
+    f.write(savestring)
+    f.close()
+    print("Saved.")
+    
 class MultiplayerClient(ConnectionListener):
     def __init__(self):
-        pass
+        self.playerid = 0
     def update(self):
         connection.Pump()
         self.Pump()
-        connection.Send({"action" : "movement", "position" : ents.CreatureControlLink.position})
-    def connectToServer(self, Adress):
-        self.Connect(Adress)
-    def Network_NiggaBalls():
-        #smash
-        pass
-    
+        connection.Send({"action" : "movement", "position" : ents.CreatureControlLink.posOffset, "playerid" : self.playerid})
+    def connectToServer(self, Address):
+        self.Connect(Address)
+    def Network_movement2(self, data):
+        if len(ConnectedCreatures) > 0:
+            ConnectedCreatures[data["playerid"]].setPosOffset(data["position"])
+    def Network_connectsuccess(self, data):
+        LoadTiles()
+        self.playerid = data["playerid"]
+        i = 0
+        while i < self.playerid:
+            newplayer = ents.create("Creature")
+            newplayer.setPosOffset((0,0)) 
+            ConnectedCreatures.append(newplayer)
+            i += 1
+        ConnectedCreatures.append(ents.CreatureControlLink)
+        i = 0
+        while ents.GameTick < data["gametick"]:
+            ents.update()
+            i += 1
+    def Network_newconnection(self, data):
+        newplayer = ents.create("Creature")
+        newplayer.setPosOffset(data["position"]) 
+        ConnectedCreatures.append(newplayer)
+    def Network_entremove(self, data):
+        ent = ents.SIDToEnt(data["eid"])
+        if ent != None:
+            ent.remove()
+    def entAction(self, action, eid):
+        connection.Send({"action" : "entaction", "action2" : action, "eid" : eid})
+        
 Client = MultiplayerClient()
-ents = Ents()
 
+def NetAction(action, sid):
+    if sid != None:
+        boxesServe.entAction(action, sid)
+        Client.entAction(action, sid)
 
 class ClientChannel(PodSixNet.Channel.Channel):
-    def Network(self, data):
-        pass
     def Network_movement(self, data):
-        Connecteds[0].setPos(data["position"])
- 
+        curPlayerid = data["playerid"]
+        curPos = data["position"]
+        ConnectedsList[curPlayerid][0].setPosOffset(curPos)
+        for k in ConnectedsList:
+            if k[1] != curPlayerid:
+                channel = k[2]
+                if channel != False: channel.Send({"action" : "movement2", "position" : curPos, "playerid" : curPlayerid})
+    def Network_entaction(self, data):
+        action2 = data["action2"]
+        eid = data["eid"]
+        NetAction(action2, eid)
+        MultiplayerClient.__dict__["Network_" + action2](Client, data)
+        
 class BoxesServer(PodSixNet.Server.Server):
  
     channelClass = ClientChannel
- 
+    def start(self):
+        self.totalplayers = 0
+        ConnectedsList.append((ents.CreatureControlLink, 0, False))
+    def update(self):
+        for k in ConnectedsList:
+            channel = k[2]
+            if channel != False: 
+                channel.Send({"action" : "movement2", "position" : ents.CreatureControlLink.posOffset, "playerid" : 0})
+    def entAction(self, action, eid):
+        for k in ConnectedsList:
+            channel = k[2]
+            if channel != False: 
+                channel.Send({"action" : action, "eid" : eid})
     def Connected(self, channel, addr):
         print('new connection:', channel)
+        self.totalplayers += 1
+        channel.Send({"action" : "connectsuccess", "position" : ents.CreatureControlLink.posOffset, "playerid" : self.totalplayers, "gametick" : ents.GameTick})
         newplayer = ents.create("Creature")
-        newplayer.setPos((200, 200)) 
-        Connecteds.append(newplayer)
-        
+        newplayer.setPosOffset((200, 200)) 
+        ConnectedsList.append((newplayer, self.totalplayers, channel))
+        for k in ConnectedsList:
+            if k[1] != self.totalplayers:
+                channel2 = k[2]
+                if channel2 != False: channel2.Send({"action" : "newconnection", "position" : ents.CreatureControlLink.posOffset, "playerid" : self.totalplayers})
 
+host, port="localhost", 8000
+boxesServe = BoxesServer(localaddr=(host, int(port)))
+host = input("Input the server's IP")
+port = input("Input the server's port")
 
 #Use control F to find specific entities lol
 class Particle(pg.sprite.Sprite):
@@ -353,6 +539,7 @@ class Particle(pg.sprite.Sprite):
         self.lastVessel = None
         self.vesselCell = None
         self.cellLayer = None
+        self.sid = None
         
     def calculatePosition(self):
         if self.parent != 0 and not self.parent == None:
@@ -375,7 +562,7 @@ class Particle(pg.sprite.Sprite):
             if self.parent.classname == "Vessel": 
                 if self.lastVessel != None:
                     self.removeCellListReference()
-                self.vesselCell = ents.findCellIndexOfPos(self.position, self.parent.position, 25)
+                self.vesselCell = ents.findCellIndexOfPos(self.position, self.parent.position, CellSize)
                 self.parent.cellTiles[self.vesselCell].append(self)
             else: 
                 if self.lastVessel != None:
@@ -458,6 +645,7 @@ class Particle(pg.sprite.Sprite):
         self.calculatePosition()
         
     def remove(self):
+        NetAction("entremove", self.sid)
         ents.remove(self)
         for ent in self.childs:
             ent.unParent()
@@ -496,7 +684,7 @@ class Tile(Particle):
     
     def applyparent(self, parent):
         Particle.applyparent(self, parent)
-        i = ents.findCellIndexOfPos(self.position, parent.position, 25)
+        i = ents.findCellIndexOfPos(self.position, parent.position, CellSize)
         parent.cellTiles[i][TileSprites[self.tileoffset][2]] = self
         self.vesselCell = i
         self.cellLayer = TileSprites[self.tileoffset][2]
@@ -564,11 +752,13 @@ class Vessel(Particle):
     def initialize(self):
         ents.allvessels.append(self)
         self.cellTiles = []
+        self.cellListLength = (CellSize*CellSize*5)
         i = 0
-        while 2601 > i:
+        while self.cellListLength > i: #2601-25
             self.cellTiles.append([None,None])
             i = i + 1
         self.velocity = (-0.1,-0.1)
+        #self.velocity = (0, 0)
     def onTick(self):
         self.posOffset = vec.add_2(self.posOffset, self.velocity)
     def enterData(self, data): #will break if deleted
@@ -738,127 +928,10 @@ class SaveLoadButton(Menu):
                     self.pressed()
 class SaveButton(SaveLoadButton):
     def pressed(self):
-        print("Saving...")
-        savetable = ents.getAllTable()
-        savestring = ""
-        for table in savetable:
-            tablestring = ""
-            for var in table:
-                chunk = str(var)
-                chunklen = str(len(chunk))
-                tablestring = tablestring + "[" + chunklen + "]" + chunk
-            savestring = savestring + "{" + tablestring + "}"
-        f = open(os.path.join(data_dir, "savefile.txt"), "w")
-        f.write(savestring)
-        f.close()
-        print("Saved.")
+        SaveTiles()
 class LoadButton(SaveLoadButton):
     def pressed(self):
-        print("Loading...")
-        ents.deleteAll()
-        f = open(os.path.join(data_dir, "savefile.txt"), "r")
-        
-        savestring = f.read()
-        loadtablesuper = []
-        loadtable = []
-        loadtablesub = ""
-        chunklen = 0
-        chunklenstring = ""
-        marker = 1
-        submarker = 0
-        for letter in savestring:
-            if marker == 1:
-                marker = 2
-            elif marker == 2:
-                if not letter == "}":
-                    if letter == "[":
-                        marker = 3
-                        chunklen = 0
-                        chunklenstring = ""
-                else:
-                    marker = 1
-                    loadtablesuper.append(loadtable)
-                    loadtable = []
-            elif marker == 3:
-                if not letter == "]":
-                    chunklenstring = chunklenstring + letter
-                else:
-                    marker = 4
-                    submarker = 0
-                    chunklen = int(chunklenstring)
-                    loadtablesub = ""
-            elif marker == 4:
-                submarker = submarker + 1
-                loadtablesub = loadtablesub + letter
-                if submarker == chunklen:
-                    loadtable.append(loadtablesub)
-                    marker = 2
-        i = ents.entCount
-        replacements = {}
-        for table in loadtablesuper:
-            table[1] = int(table[1])
-            if table[1] in replacements:
-                table[1] = replacements[table[0]]
-            else:
-                i = i + 1
-                replacements.update({table[1]: i})
-                table[1] = i
-                ents.incrementEntCounter()
-        for table in loadtablesuper:
-            i2 = 0
-            for letter in table[5]:
-                if letter == "1":
-                    table[i2] = int(table[i2])
-                    if table[i2] in replacements:
-                        table[i2] = replacements[table[i2]]
-                elif letter == "L":
-                    marker = 1
-                    tablelist = []
-                    chars = ""
-                    i = 0
-                    for char in table[i2]:
-                        if marker == 0:
-                            if char == ">":
-                                tablelist.append(int(chars))
-                                chars = ""
-                            else:
-                                i += 1
-                                chars = chars + char
-                        elif marker == 1:
-                            marker = 0
-                    tablelist.append(int(chars))
-                    i3 = 0
-                    while i3 < len(tablelist):
-                        if tablelist[i3] in replacements:
-                            tablelist[i3] = replacements[tablelist[i3]]
-                        i3 += 1
-                    table[i2] = tablelist
-                        
-                i2 += 1
-        spawnedEnts = []
-        for table in loadtablesuper:
-            ent = ents.create(table[0])
-            ent.calculatePosition()
-            ent.setSID(int(table[1]))
-            spawnedEnts.append(ent)
-        i = 0
-        while i < len(loadtablesuper):
-            ent = spawnedEnts[i]
-            table = loadtablesuper[i]
-            ent.enterData(table)
-            if ent.classname == "Creature":
-                ents.CreatureControlLink = ent
-            i += 1
-        
-        i = 0
-        while i < len(loadtablesuper):
-            ent = spawnedEnts[i]
-            table = loadtablesuper[i]
-            ent.setParent(ents.SIDToEnt(int(table[6])))
-            i += 1
-        
-        f.close()
-        print("Loaded")
+        LoadTiles()
 class StartButton(Menu):
     def initialize(self):
         ents.menulayer1.add(self)
@@ -1292,18 +1365,22 @@ def main():
     testitem2 = ents.create("Gun")
     testitem2.putInside(plytest, 1)
     
-    host, port="localhost", 8000
-    boxesServe = BoxesServer(localaddr=(host, int(port)))
+    boxesServe.start()
     
     if (setserver): 
         GameServer = True
+        Client.connectToServer(("localhost", 1)) #I have no idea why but for some reason if this doesn't run first when the server is starting it will cause it to break.
+        print("Server")
     else: 
         GameServer = False
-        Client.connectToServer(("localhost", 8000))
+        
+        Client.connectToServer((host, port))
+        print("Client")
     
     while going:
         clock.tick(60)
         if (GameServer): 
+            boxesServe.update()
             boxesServe.Pump()
         
         going = InputEvents(keys, ents.CreatureControlLink)
@@ -1315,7 +1392,7 @@ def main():
         screen.blit(background, (0, 0))
         ents.draw(screen)
         pg.display.flip()
-        
+        ents.GameTick += 1
     pg.quit()
 
 
