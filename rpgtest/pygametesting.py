@@ -519,7 +519,7 @@ class BoxesServer(PodSixNet.Server.Server):
 host, port="localhost", 8000
 boxesServe = BoxesServer(localaddr=(host, int(port)))
 host = input("Input the server's IP")
-port = input("Input the server's port")
+port = int(input("Input the server's port"))
 
 #Use control F to find specific entities lol
 class Particle(pg.sprite.Sprite):
