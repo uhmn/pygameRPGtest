@@ -12,6 +12,7 @@ class MultiplayerClient(ConnectionListener):
         connection.Pump()
         self.Pump()
         connection.Send({"action" : "movement", "position" : ents.getCreatureControlLink().posOffset, "playerid" : self.playerid})
+            
     def connectToServer(self, Address):
         self.Connect(Address)
     def Network_movement2(self, data):
@@ -32,39 +33,64 @@ class MultiplayerClient(ConnectionListener):
             Globals.ConnectedCreatures.append(newplayer)
             i += 1
         Globals.ConnectedCreatures.append(ents.getCreatureControlLink())
-        i = 0
-        while ents.getTick() < data["gametick"]:
-            ents.update()
-            i += 1
+        #i = 0
+        #while ents.getTick() < data["gametick"]:
+        #    ents.update()
+        #    i += 1
     def Network_newconnection(self, data):
         newplayer = ents.create("Creature")
         newplayer.setPosOffset(data["position"]) 
         Globals.ConnectedCreatures.append(newplayer)
     def Network_entmethod(self, data):
-        ent = ents.SIDToEnt(data["eid"])
-        parameter = data["parameter"]
+        ent = ents.PIDToEnt(data["pid"])
+        funcindex = data["parameter"]
         if ent != None:
             fdict = ent.NetworkingMethods
-            fdict[parameter](ent)
-    def Network_new_ent(self, data):
-        eid = data["eid"]
-        parameter = data["parameter"]
-        myent = ents.create(parameter)
-        Globals.NetEnts.append({myent.getSID() : eid})
-    def Network_receive_ents(self, data):
-        pass
-    def entAction(self, action, eid, parameter):
-        connection.Send({"action" : "entaction", "action2" : action, "eid" : eid, "parameter" : parameter})
+            fdict[funcindex](ent)
+    def Network_entmethod2(self, data):
+        ent = ents.PIDToEnt(data["pid"])
+        funcindex = data["parameter"][0]
+        funcparams = data["parameter"]
+        if ent != None:
+            fdict = ent.NetworkingMethods
+            fdict[funcindex](ent, funcparams)
+    #def Network_new_ent(self, data):
+    #    pid = data["pid"]
+    #    parameter = data["parameter"]
+    #    myent = ents.create(parameter)
+    #    Globals.NetEnts.append({myent.getID() : pid})
+    #def Network_receive_ents(self, data):
+    #    pass
+    def Network_newent(self, data):
+        savestring = data["ents_string"]
+        #check = ents.PIDToEnt(pid)
+        #if check != None:
+        #    check.remove()
+        slf.loadTilesPID(savestring)
+    def entAction(self, action, pid, parameter):
+        connection.Send({"action" : "entaction", "action2" : action, "pid" : pid, "parameter" : parameter, "playerid" : self.playerid}) #2
     def getServerEnts(self, table):
         connection.Send({"action" : "getServerEnts", "table" : table})
-     
+   
 
-def NetAction(action, sid, parameter):
-    if sid != None:
-        Server.entAction(action, sid, parameter)
-        Client.entAction(action, sid, parameter)
+def NetAction(action, pid, parameter, *argv):
+    if pid != None:
+        origClient = 0
+        if len(argv) != 0:
+            origClient = argv[0]
+        Server.entAction(action, pid, parameter, origClient) #4
+        Client.entAction(action, pid, parameter) #1, starts here
+       
 
 
+'''
+       
+def ActionCreateEnt(action, pid, entity):
+    entitystring = slf.formatTiles([entity])
+    if pid != None:
+        Server.entAction(action, pid, entitystring)
+        #Client.entAction(action, pid, entitystring)
+'''
 class ClientChannel(PodSixNet.Channel.Channel):
     def Network_movement(self, data):
         curPlayerid = data["playerid"]
@@ -74,11 +100,12 @@ class ClientChannel(PodSixNet.Channel.Channel):
             if k[1] != curPlayerid:
                 channel = k[2]
                 if channel != False: channel.Send({"action" : "movement2", "position" : curPos, "playerid" : curPlayerid})
-    def Network_entaction(self, data):
+    def Network_entaction(self, data): #3
         action2 = data["action2"]
-        eid = data["eid"]
+        pid = data["pid"]
         parameter = data["parameter"]
-        NetAction(action2, eid, parameter)
+        playerid = data["playerid"]
+        NetAction(action2, pid, parameter, playerid)
         MultiplayerClient.__dict__["Network_" + action2](Client, data)
     def Network_getServerEnts(self, data):
         pass
@@ -90,19 +117,26 @@ class BoxesServer(PodSixNet.Server.Server):
         self.totalplayers = 0
         Globals.ConnectedsList.append((ents.getCreatureControlLink(), 0, False))
     def update(self):
+        send_ents = Globals.ServerLastCreatedEnts
+        ents_string = None
+        if len(send_ents) != 0: ents_string = slf.formatTiles(send_ents, False)
+        
+        Globals.ServerLastCreatedEnts.clear()
         for k in Globals.ConnectedsList:
             channel = k[2]
             if channel != False: 
                 channel.Send({"action" : "movement2", "position" : ents.getCreatureControlLink().posOffset, "playerid" : 0})
-    def entAction(self, action, eid, parameter):
+                if ents_string != None:
+                    channel.Send({"action" : "newent", "ents_string" : ents_string})
+    def entAction(self, action, pid, parameter, origClient): #5, broadcasted to clients here
         for k in Globals.ConnectedsList:
             channel = k[2]
-            if channel != False: 
-                channel.Send({"action" : action, "eid" : eid, "parameter" : parameter})
+            if channel != False and k[1] != origClient: 
+                channel.Send({"action" : action, "pid" : pid, "parameter" : parameter})
     def Connected(self, channel, addr):
         print('new connection:', channel)
         self.totalplayers += 1
-        savefile = slf.formatTiles(ents.getallparticles())
+        savefile = slf.formatTiles(ents.get_p_entity_array(), False)
         channel.Send({"action" : "connectsuccess", "position" : ents.getCreatureControlLink().posOffset, "playerid" : self.totalplayers, "gametick" : ents.getTick(), "savefile" : savefile})
         newplayer = ents.create("Creature")
         newplayer.setPosOffset((200, 200))

@@ -21,6 +21,13 @@ class SaveLoadButton(Menu):
                     self.pressed()
 
 def loadTiles(savestring):
+    loadtilesfunction(savestring, True)
+    
+def loadTilesPID(savestring):
+    loadtilesfunction(savestring, False)
+
+def loadtilesfunction(savestring, useSID):
+    if useSID: ents.clearSIDs()
     loadtablesuper = []
     loadtable = []
     loadtablesub = ""
@@ -55,6 +62,7 @@ def loadTiles(savestring):
             if submarker == chunklen:
                 loadtable.append(loadtablesub)
                 marker = 2
+    #print(loadtablesuper)
     i = ents.getCount()
     replacements = {}
     for table in loadtablesuper:
@@ -98,16 +106,27 @@ def loadTiles(savestring):
                     
             i2 += 1
     spawnedEnts = []
+    
     for table in loadtablesuper:
         ent = ents.create(table[0])
         ent.calculatePosition()
-        ent.setSID(int(table[1]))
+        
+        if useSID:
+            ent.setSID(int(table[1]))
+        #else:
+        #    ent.setPID(int(table[1]))
+        
         spawnedEnts.append(ent)
     i = 0
     while i < len(loadtablesuper):
         ent = spawnedEnts[i]
         table = loadtablesuper[i]
-        ent.enterData(table)
+        
+        deref = None
+        if useSID: deref = ents.SIDToEnt
+        else: deref = ents.PIDToEnt
+        ent.enterData(table, deref)
+        
         if ent.classname == "Creature":
             ents.setCreatureControlLink(ent)
         i += 1
@@ -116,7 +135,12 @@ def loadTiles(savestring):
     while i < len(loadtablesuper):
         ent = spawnedEnts[i]
         table = loadtablesuper[i]
-        ent.setParent(ents.SIDToEnt(int(table[6])))
+        
+        if useSID:
+            ent.setparent_no_translation(ents.SIDToEnt(int(table[6])))
+        else:
+            ent.setparent_no_translation(ents.PIDToEnt(int(table[6])))
+        
         i += 1
 
 def LoadGame():
@@ -132,21 +156,25 @@ def LoadGame():
 
 
     
-def formatTiles(table):
+def formatTiles(table, SIDmode):
     savetable = ents.getAllInTable(table)
+    print(savetable)
     savestring = ""
     for table in savetable:
-        tablestring = ""
-        for var in table:
-            chunk = str(var)
-            chunklen = str(len(chunk))
-            tablestring = tablestring + "[" + chunklen + "]" + chunk
-        savestring = savestring + "{" + tablestring + "}"
+        if table != None:
+            tablestring = ""
+            for var in table:
+                chunk = str(var)
+                chunklen = str(len(chunk))
+                tablestring = tablestring + "[" + chunklen + "]" + chunk
+            savestring = savestring + "{" + tablestring + "}"
+        elif not SIDmode:
+            savestring = savestring + ":"
     return savestring
     
 def SaveGame():
     print("Saving...")
-    savestring = formatTiles(ents.getAllTable())
+    savestring = formatTiles(ents.get_p_entity_array(), True)
     f = open(os.path.join(Globals.data_dir, "savefile.txt"), "w")
     f.write(savestring)
     f.close()

@@ -2,52 +2,8 @@ import pygame as pg
 import vec
 import Globals
 
-"""
-import Particle
-import EditorEnt
-import Vessel
-import Creature
-import Menu
-import MenuB
-import MenuItem
-import MousePointer
-import EditorIcon
-import SaveButton
-import LoadButton
-import StartButton
-import Tile
-import DeleteBrush
-import FloorItem
-import Gun
-import WaterGun
-import Thruster
-"""
-
 class Entss():
     
-    """
-    def getEntityTypes(self):
-        return ({
-          "Particle"        :    Particle(),
-          "EditorEnt"       :    EditorEnt(),
-          "Vessel"          :    Vessel(),
-          "Creature"        :    Creature(),
-          "Menu"            :    Menu(),
-          "MenuB"           :    MenuB(),
-          "MenuItem"        :    MenuItem(),
-          "MousePointer"    :    MousePointer(),
-          "EditorIcon"      :    EditorIcon(),
-          "SaveButton"      :    SaveButton(),
-          "LoadButton"      :    LoadButton(),
-          "StartButton"     :    StartButton(),
-          "Tile"            :    Tile(),
-          "DeleteBrush"     :    DeleteBrush(),
-          "FloorItem"       :    FloorItem(),
-          "Gun"             :    Gun(),
-          "WaterGun"        :    WaterGun(),
-          "Thruster"        :    Thruster()
-        })
-    """
     def __init__(self):
         self.allsprites = pg.sprite.RenderPlain()
         self.menulayer1 = pg.sprite.RenderPlain()
@@ -57,6 +13,8 @@ class Entss():
         self.allbuttons = []
         self.allparticles = []
         self.AllParticleLayers = []
+        self.p_entity_array = []
+        #self.p_entity_list = []
         self.CreatureControlLink = 0
         self.MenuHoldingObject = 0
         self.MenuPositions = [(0,0),(0,0)]
@@ -87,6 +45,8 @@ def initialize(entlist):
     self.playerlayer = self.makeLayer()
     self.playercosmeticlayer = self.makeLayer()
     self.editlayer = self.makeLayer()
+    #for x in range (8000):
+    #    self.entity_array.append(None)
     self.entTable = entlist
     
 def getmenulayer1():
@@ -151,6 +111,18 @@ def incrementGameTick():
 def setGameTick(inp):
     self.GameTick = inp
     
+def get_p_entity_array():
+    return self.p_entity_array
+    
+def p_entity_array_add(ent):
+    for x in range(len(self.p_entity_array)):
+        if self.p_entity_array[x] == None:
+            self.p_entity_array[x] = ent
+            ent.pid = x+1
+            return
+    ent.pid = len(self.p_entity_array)+1
+    self.p_entity_array.append(ent)
+    
 def create(etype):
     entitytypes = getEntityTypes()
     ent = entitytypes[etype]
@@ -200,7 +172,6 @@ def adjacentBlocksAt(pos, vessel): #return if there are any wall blocks in the 3
         for i2 in range(3):
             tile = self.findBlocksAt(vec.add_2(pos, (i1*32-32, i2*32-32)), vessel)
             if tile[1] != None: 
-                print("a")
                 return True
                 
     return False
@@ -220,12 +191,31 @@ def SIDToEnt(SID):
         if sprite.getSID() == SID:
             return sprite
     return None
+def EIDToEnt(EID):
+    for sprite in self.allparticles:
+        if sprite.getID() == EID:
+            return sprite
+    return None
+def PIDToEnt(PID):
+    return self.p_entity_array[PID-1]
+    '''
+    for sprite in self.allparticles:
+        if sprite.getPID() == PID:
+            return sprite
+    return None
+    '''
+def clearSIDs():
+    for sprite in self.allparticles:
+        sprite.setSID(None)
 def incrementEntCounter():
     self.entCount = self.entCount + 1
 def getAllInTable(thetable):
     table = []
     for ent in thetable:
-        table.append(ent.getData())
+        if ent != None:
+            table.append(ent.getData())
+        else:
+            table.append(None)
     return table
 def deleteAll():
     self.allsprites.remove(self.allparticles)
@@ -245,9 +235,14 @@ def deleteAll():
     for ent in self.allparticles:
         del ent
     self.allparticles = []
+    self.p_entity_array = []
 def remove(ent): #Don't use this to remove entities, use the entities' remove function instead.
     if ent in self.allsprites: self.allsprites.remove(ent)
     if ent in self.allparticles: self.allparticles.remove(ent)
+    try:
+        if ent in self.p_entity_array: self.p_entity_array[ent.pid-1] = None
+    except:
+        print(str(len(self.p_entity_array)) + " " + str(ent.pid-1))
     i = 0
     while i < len(self.AllParticleLayers):
         if ent in self.AllParticleLayers[i]: self.AllParticleLayers[i].remove(ent)

@@ -1,14 +1,11 @@
-import pygame as pg
-from pygamefunctions import load_image
 import ents
 import Globals
-import vec
 from E_Particle import Particle
 
 class Tile(Particle):
     
-    def applyparent(self, parent):
-        Particle.applyparent(self, parent)
+    def applyparent(self, parent, translate):
+        Particle.applyparent(self, parent, translate)
         i = ents.findCellIndexOfPos(self.position, parent.position, Globals.CellSize)
         parent.cellTiles[i][Globals.TileSprites[self.tileoffset][2]] = self
         self.vesselCell = i
@@ -27,11 +24,12 @@ class Tile(Particle):
     
     def initialize(self):
         self.tileoffset = 0
+        Globals.ServerLastCreatedEnts.append(self)
     def getData(self):
         ans = Particle.getData(self)
         ans.append(self.tileoffset)
         ans[5] = ans[5] + "i"
         return ans
-    def enterData(self, data):
-        Particle.enterData(self, data)
+    def enterData(self, data, deref):
+        Particle.enterData(self, data, deref)
         self.setTileType(int(data[7]))

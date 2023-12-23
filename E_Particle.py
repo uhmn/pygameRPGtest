@@ -18,7 +18,9 @@ class Particle(pg.sprite.Sprite):
         self.parent = None
         ents.incrementEntCounter()
         self.id = ents.getCount()
+        self.pid = None
         ents.allparticles_append(self)
+        ents.p_entity_array_add(self)
         Globals.LastCreatedEnts.append(self)
         self.childs = []
         self.position = (0,0) 
@@ -34,7 +36,15 @@ class Particle(pg.sprite.Sprite):
         else:
             self.position = self.posOffset
             return self.position
-        
+        '''
+    def getCalcPosition(self):
+        if self.parent != 0 and not self.parent == None:
+            self.position = 
+            return vec.add_2(self.posOffset, self.parent.calculatePosition())
+        else:
+            self.position = 
+            return self.posOffset
+        '''
     def removeCellListReference(self):
         if not self.cellLayer == None:
             if self.cellLayer > 1:
@@ -77,15 +87,23 @@ class Particle(pg.sprite.Sprite):
         self.posOffset = pos
         self.fixPos()
         
-    def applyparent(self, parent):
+
+    def applyparent(self, parent, translate):
         self.parent = parent
         parent.childs.append(self)
-        self.posOffset = vec.round2(vec.sub_2(self.position, self.parent.position))
+        if translate: self.posOffset = vec.round2(vec.sub_2(self.position, self.parent.position))
+        
     def setParent(self, parent):
         if parent != None:
-            self.applyparent(parent)
+            self.applyparent(parent, True)
         else:
             self.parent = None
+    def setparent_no_translation(self, parent):
+        if parent != None:
+            self.applyparent(parent, False)
+        else:
+            self.parent = None
+            
     def unParent(self):
         if not self.parent == None:
             newparent = self.parent.parent
@@ -105,6 +123,12 @@ class Particle(pg.sprite.Sprite):
     def getID(self):
         return self.id
     
+    def setPID(self, pid):
+        self.pid = pid
+    
+    def getPID(self):
+        return self.pid
+    
     def setSID(self, sid):
         self.sid = sid
     
@@ -113,25 +137,25 @@ class Particle(pg.sprite.Sprite):
         
     def getData(self):
         if self.parent != None:
-            parent = self.parent.getID()
+            parent = self.parent.getPID()
         else:
             parent = 0
         return ([self.classname, 
-                 self.id,
+                 self.pid,
                  self.editsprite, 
                  self.posOffset[0], 
                  self.posOffset[1], 
                  "S1SIIS1",
                  parent,])
         
-    def enterData(self, data):
+    def enterData(self, data, deref):
         self.classname = data[0]
         self.setSprite(data[2])
         self.posOffset = (float(data[3]), float(data[4]))
         self.calculatePosition()
         
     def remove(self):
-        net.NetAction("entmethod", self.sid, "remove")
+        net.NetAction("entmethod", self.pid, "remove")
         self.removef()
     def removef(self):
         ents.remove(self)
@@ -165,8 +189,8 @@ class Particle(pg.sprite.Sprite):
             else:
                 return self.parent.getVessel()
     def onTick(self):
-        #if Globals.debug == self.sid: self.image.set_alpha(64)
-        #else: self.image.set_alpha(255)
+        if Globals.debug == self.pid: self.image.set_alpha(64)
+        else: self.image.set_alpha(255)
         pass
     
     def initialize(self):

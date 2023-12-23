@@ -3,139 +3,10 @@ import vec
 import Globals
 import ents
 import net
-from pygamefunctions import load_image
+from pygamefunctions import load_image, InputEvents
 
-import E_Particle
-import E_EditorEnt
-import E_Vessel
-import E_Creature
-import E_Menu
-import E_MenuB
-import E_MenuItem
-import E_MousePointer
-import E_EditorIcon
-import E_SaveButton
-import E_LoadButton
-import E_StartButton
-import E_Tile
-import E_DeleteBrush
-import E_FloorItem
-import E_Gun
-import E_WaterGun
-import E_Thruster
-
-def GetEntityTypes(self):
-    return ({
-      "Particle"        :    E_Particle.Particle(),
-      "EditorEnt"       :    E_EditorEnt.EditorEnt(),
-      "Vessel"          :    E_Vessel.Vessel(),
-      "Creature"        :    E_Creature.Creature(),
-      "Menu"            :    E_Menu.Menu(),
-      "MenuB"           :    E_MenuB.MenuB(),
-      "MenuItem"        :    E_MenuItem.MenuItem(),
-      "MousePointer"    :    E_MousePointer.MousePointer(),
-      "EditorIcon"      :    E_EditorIcon.EditorIcon(),
-      "SaveButton"      :    E_SaveButton.SaveButton(),
-      "LoadButton"      :    E_LoadButton.LoadButton(),
-      "StartButton"     :    E_StartButton.StartButton(),
-      "Tile"            :    E_Tile.Tile(),
-      "DeleteBrush"     :    E_DeleteBrush.DeleteBrush(),
-      "FloorItem"       :    E_FloorItem.FloorItem(),
-      "Gun"             :    E_Gun.Gun(),
-      "WaterGun"        :    E_WaterGun.WaterGun(),
-      "Thruster"        :    E_Thruster.Thruster()
-    })
-
-ents.initialize(GetEntityTypes)
-
-def InputEvents(keys, keysHeld, CreatureControlLink):
-    going = True
-    for v in keys:
-        keys[v] = False
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            going = False
-        elif event.type == pg.KEYDOWN:
-            if event.key == pg.K_ESCAPE:
-                going = False
-            elif event.key == pg.K_UP:
-                Globals.keysPressed += 1
-                keys[1] = True
-                keysHeld[1] = True
-            elif event.key == pg.K_DOWN:
-                Globals.keysPressed += 1
-                keys[2] = True
-                keysHeld[2] = True
-            elif event.key == pg.K_LEFT:
-                Globals.keysPressed += 1
-                keys[3] = True
-                keysHeld[3] = True
-            elif event.key == pg.K_RIGHT:
-                Globals.keysPressed += 1
-                keys[4] = True
-                keysHeld[4] = True
-            elif event.key == pg.K_RETURN:
-                keys[5] = True
-                if Globals.ViewMode == "Editor":
-                    Globals.ViewMode = "1st"
-                else:
-                    Globals.ViewMode = "Editor"
-            elif event.key == pg.K_q:
-                testitem2 = ents.create(input("Input itemtype:"))
-                testitem2.putInside(ents.getCreatureControlLink(), 1)
-            elif event.key == pg.K_w:
-                Globals.debug += 1
-                print(Globals.debug)
-            elif event.key == pg.K_s:
-                Globals.debug -= 1
-                print(Globals.debug)
-        elif event.type == pg.MOUSEBUTTONDOWN:
-            keys[0] = True
-            keysHeld[0] = True
-        elif event.type == pg.MOUSEBUTTONUP:
-            keysHeld[0] = False
-        elif event.type == pg.KEYUP:
-            if event.key == pg.K_UP:
-                keysHeld[1] = False
-                Globals.keysPressed = Globals.keysPressed - 1
-            elif event.key == pg.K_DOWN:
-                keysHeld[2] = False
-                Globals.keysPressed = Globals.keysPressed - 1
-            elif event.key == pg.K_LEFT:
-                keysHeld[3] = False
-                Globals.keysPressed = Globals.keysPressed - 1
-            elif event.key == pg.K_RIGHT:
-                keysHeld[4] = False
-                Globals.keysPressed = Globals.keysPressed - 1
-    if Globals.keysPressed != 0:
-        if Globals.ViewMode == "Editor":
-            if keysHeld[1] == True:
-                Globals.CamY = Globals.CamY - (16/(Globals.keysPressed/(Globals.keysPressed/1.5)))
-        
-            if keysHeld[2] == True:
-                Globals.CamY = Globals.CamY + (16/(Globals.keysPressed/(Globals.keysPressed/1.5)))
-        
-            if keysHeld[3] == True:
-                Globals.CamX = Globals.CamX - (16/(Globals.keysPressed/(Globals.keysPressed/1.5)))
-        
-            if keysHeld[4] == True:
-                Globals.CamX = Globals.CamX + (16/(Globals.keysPressed/(Globals.keysPressed/1.5)))
-    if Globals.ViewMode == "1st" and CreatureControlLink != 0:
-        Globals.windowSize = pg.display.get_window_size()
-        if CreatureControlLink.moveCooldown > 0:
-            slider = CreatureControlLink.moveCooldown / CreatureControlLink.lastMoveCooldown
-            Globals.CamX = slider*(CreatureControlLink.lastPosition[0]-Globals.windowSize[0]/2)+(1-slider)*(CreatureControlLink.position[0]-Globals.windowSize[0]/2)
-            Globals.CamY = slider*(CreatureControlLink.lastPosition[1]-Globals.windowSize[1]/2)+(1-slider)*(CreatureControlLink.position[1]-Globals.windowSize[1]/2)
-        else:
-            Globals.CamX = CreatureControlLink.position[0]-Globals.windowSize[0]/2
-            Globals.CamY = CreatureControlLink.position[1]-Globals.windowSize[1]/2
-    return going
-
-
-
-
-
-#Use control F to find specific entities lol
+import initialize_ents
+initialize_ents.initialize()
 
 def main():
             
@@ -263,18 +134,18 @@ def main():
     net.Server.start()
     
     if (setserver): 
-        GameServer = True
+        Globals.GameServer = True
         net.Client.connectToServer(("localhost", 1)) #I have no idea why but for some reason if this doesn't run first when the server is starting it will cause it to break.
         print("Server")
     else: 
-        GameServer = False
+        Globals.GameServer = False
         
         net.Client.connectToServer((net.host, net.port))
         print("Client")
     
     while going:
         clock.tick(60)
-        if (GameServer): 
+        if (Globals.GameServer): 
             net.Server.update()
             net.Server.Pump()
         
@@ -282,7 +153,6 @@ def main():
         
         ents.findMouseover()
         ents.update()
-        
         
         net.Client.update()
         

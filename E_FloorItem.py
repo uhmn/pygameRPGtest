@@ -22,8 +22,8 @@ class FloorItem(Particle):
     def pressed(self):
         space = None
         i = 0
-        while i < len(ents.MenuContents):
-            if ents.MenuContents[i] == 0: space = i
+        while i < len(ents.getMenuContents()):
+            if ents.getMenuContents()[i] == 0: space = i
             i += 1
         if space != None:
             if vec.largest(vec.sub_2(ents.getCreatureControlLink().position, self.position)) < 48:
@@ -122,14 +122,15 @@ class FloorItem(Particle):
         if inside == None: 
             inside = 0
         else:
-            inside = self.inside.id
+            inside = self.inside.pid
         ans.append(inside)
         ans.append(self.invIndex)
         ans[5] = ans[5] + "1" + "I"
         return ans
-    def enterData(self, data):
-        Particle.enterData(self, data)
-        inside = ents.SIDToEnt(data[7])
+    def enterData(self, data, deref):
+        Particle.enterData(self, data, deref)
+        #inside = ents.SIDToEnt(data[7])
+        inside = deref(data[7])
         if inside == 0 or inside == None:
             self.inside = None
         else:

@@ -3,6 +3,7 @@ import os
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 data_dir = os.path.join(main_dir, "data")
 LastCreatedEnts = []
+ServerLastCreatedEnts = []
 ConnectedCreatures = []
 ConnectedsList = []
 NetEnts = []
@@ -41,4 +42,4 @@ EditorTileOffset = 0
 EditorEntType = "Tile"
 EditBrush = None
 
-debug = 0
+debug = -1
