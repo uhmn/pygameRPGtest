@@ -58,8 +58,17 @@ def getmenulayer2():
 def getmenulayer3():
     return self.menulayer3
 
+def geteditlayer():
+    return self.editlayer
+
+def getwalllayer():
+    return self.walllayer
+
 def getallparticles():
     return self.allparticles
+
+def getallvessels():
+    return self.allvessels
 
 def allparticles_append(inp):
     self.allparticles.append(inp)
@@ -122,6 +131,8 @@ def p_entity_array_add(ent):
             return
     ent.pid = len(self.p_entity_array)+1
     self.p_entity_array.append(ent)
+def p_entity_array_append(symbol):
+    self.p_entity_array.append(None)
     
 def create(etype):
     entitytypes = getEntityTypes()
@@ -139,6 +150,7 @@ def update():
 def draw(screen):
     for layer in self.AllParticleLayers:
         layer.draw(screen)
+    if Globals.ViewMode == "1st": screen.blit(Globals.ShadowSurface, (0, 0))
     self.menulayer1.draw(screen)
     self.menulayer2.draw(screen)
     self.menulayer3.draw(screen)
@@ -167,6 +179,12 @@ def findBlocksAt(pos, vessel): #Enter a real position and it will return the flo
         ent1 = findEntAtCellIndex(cIndex, vessel, 0)
         ent2 = findEntAtCellIndex(cIndex, vessel, 1)
         return [ent1, ent2]
+def findObjectAt(pos):
+    for ent in self.playerlayer.sprites():
+        offset = vec.round2(vec.div(vec.sub_2(pos, ent.position), 32))
+        if offset[0] == 0 and offset[1] == 0:
+            return ent
+    return None
 def adjacentBlocksAt(pos, vessel): #return if there are any wall blocks in the 3x3 square
     for i1 in range(3):
         for i2 in range(3):
@@ -197,7 +215,10 @@ def EIDToEnt(EID):
             return sprite
     return None
 def PIDToEnt(PID):
-    return self.p_entity_array[PID-1]
+    if PID-1 < len(self.p_entity_array):
+        return self.p_entity_array[PID-1]
+    else:
+        return None
     '''
     for sprite in self.allparticles:
         if sprite.getPID() == PID:

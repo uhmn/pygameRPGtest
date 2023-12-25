@@ -7,6 +7,9 @@ from E_FloorItem import FloorItem
 import sound
 
 class Gun(FloorItem):
+    
+    NetworkingMethods = FloorItem.NetworkingMethods
+    
     def initialize(self):
         FloorItem.initialize(self)
         self.crosshaircolor = 2
@@ -15,7 +18,7 @@ class Gun(FloorItem):
         self.click_sound = sound.load("click.wav")
         self.equip_sound = sound.load("gun_equip.wav")
         self.bullets = 7
-    def use(self, target):
+    def useF(self, target):
         if self.bullets > 0:
             bullet = ents.create("FloorItem")
             bullet.setSprite("shell.png")

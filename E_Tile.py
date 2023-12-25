@@ -4,17 +4,21 @@ from E_Particle import Particle
 
 class Tile(Particle):
     
+    def tileSpriteData(self, offset):
+        return Globals.TileSprites[self.tileoffset][offset]
+    
     def applyparent(self, parent, translate):
         Particle.applyparent(self, parent, translate)
+        if not translate: self.calculatePosition()
         i = ents.findCellIndexOfPos(self.position, parent.position, Globals.CellSize)
-        parent.cellTiles[i][Globals.TileSprites[self.tileoffset][2]] = self
+        parent.cellTiles[i][self.tileSpriteData(2)] = self
         self.vesselCell = i
-        self.cellLayer = Globals.TileSprites[self.tileoffset][2]
+        self.cellLayer = self.tileSpriteData(2)
             
     def setTileType(self, offset):
         self.tileoffset = offset
-        self.setSprite(Globals.TileSprites[offset][0])
-        if Globals.TileSprites[offset][2] == 0:
+        self.setSprite(self.tileSpriteData(0))
+        if self.tileSpriteData(2) == 0:
             ents.floorlayer_add(self)
         else:
             ents.walllayer_add(self)

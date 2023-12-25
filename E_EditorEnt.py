@@ -41,10 +41,6 @@ class EditorEnt(E_Particle.Particle):
                         self.placeBlock(parameters)
                     else:
                         net.NetAction("entmethod2", self.pid, parameters)
-                    
-                    
-                    
-
         else:
             self.image.set_alpha(0)
             

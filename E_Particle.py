@@ -36,15 +36,6 @@ class Particle(pg.sprite.Sprite):
         else:
             self.position = self.posOffset
             return self.position
-        '''
-    def getCalcPosition(self):
-        if self.parent != 0 and not self.parent == None:
-            self.position = 
-            return vec.add_2(self.posOffset, self.parent.calculatePosition())
-        else:
-            self.position = 
-            return self.posOffset
-        '''
     def removeCellListReference(self):
         if not self.cellLayer == None:
             if self.cellLayer > 1:
@@ -52,7 +43,6 @@ class Particle(pg.sprite.Sprite):
             else:
                 self.parent.cellTiles[self.vesselCell][self.cellLayer] = None
             
-    
     def calculateVesselCell(self):
         if self.parent != None and self.classname != "Tile":
             if self.parent.classname == "Vessel": 
@@ -86,7 +76,12 @@ class Particle(pg.sprite.Sprite):
     def setPosOffset(self, pos):
         self.posOffset = pos
         self.fixPos()
-        
+    def setPosOffsetNetworked(self, pos):
+        net.NetAction("entmethod2", self.pid, ("setposoffset", pos))
+        self.setPosOffset(pos)
+    def net_setPosOffset(self, parameter):
+        self.setPosOffset(parameter[1])
+    NetworkingMethods.update({"setposoffset" : net_setPosOffset})
 
     def applyparent(self, parent, translate):
         self.parent = parent
@@ -143,8 +138,8 @@ class Particle(pg.sprite.Sprite):
         return ([self.classname, 
                  self.pid,
                  self.editsprite, 
-                 self.posOffset[0], 
-                 self.posOffset[1], 
+                 round(self.posOffset[0]), 
+                 round(self.posOffset[1]), 
                  "S1SIIS1",
                  parent,])
         

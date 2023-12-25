@@ -58,9 +58,9 @@ class MenuItem(Menu):
                         if throwmagnitude > 25:
                             throwspeed = vec.div(throwspeed, throwmagnitude / 25)
                         if vec.largest(vec.sub_2(destination, self.itemlink.posOffset)) > 48 or ents.findBlocksAt(realdestination, ents.getCreatureControlLink().parent)[1] != None:
-                            self.itemlink.throw(throwspeed)
+                            self.itemlink.throw(throwspeed) #TODO: Make it always throw if the destination isn't solid ground
                         else:
-                            self.itemlink.setPosOffset(destination)
+                            self.itemlink.setPosOffsetNetworked(destination)
                         ents.addInventoryEntity(0, self.inventoryIndex)
                         self.remove()
                     self.rect.center = ents.MenuPositions[self.inventoryIndex]

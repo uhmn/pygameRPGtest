@@ -33,11 +33,14 @@ def loadtilesfunction(savestring, useSID):
     loadtablesub = ""
     chunklen = 0
     chunklenstring = ""
+    startstring = ""
     marker = 1
     submarker = 0
     for letter in savestring:
         if marker == 1:
-            marker = 2
+            if letter == "{": marker = 2
+            elif letter == ":": loadtablesuper.append(":")
+            else: startstring = startstring + letter
         elif marker == 2:
             if not letter == "}":
                 if letter == "[":
@@ -62,86 +65,98 @@ def loadtilesfunction(savestring, useSID):
             if submarker == chunklen:
                 loadtable.append(loadtablesub)
                 marker = 2
-    #print(loadtablesuper)
+    CCL = None
+    if len(startstring) != 0:
+        CCL = startstring
     i = ents.getCount()
     replacements = {}
     for table in loadtablesuper:
-        table[1] = int(table[1])
-        if table[1] in replacements:
-            table[1] = replacements[table[0]]
-        else:
-            i = i + 1
-            replacements.update({table[1]: i})
-            table[1] = i
-            ents.incrementEntCounter()
+        if table != ":":
+            table[1] = int(table[1])
+            if table[1] in replacements:
+                table[1] = replacements[table[0]]
+            else:
+                i = i + 1
+                replacements.update({table[1]: i})
+                table[1] = i
+                ents.incrementEntCounter()
     for table in loadtablesuper:
-        i2 = 0
-        for letter in table[5]:
-            if letter == "1":
-                table[i2] = int(table[i2])
-                if table[i2] in replacements:
-                    table[i2] = replacements[table[i2]]
-            elif letter == "L":
-                marker = 1
-                tablelist = []
-                chars = ""
-                i = 0
-                for char in table[i2]:
-                    if marker == 0:
-                        if char == ">":
-                            tablelist.append(int(chars))
-                            chars = ""
-                        else:
-                            i += 1
-                            chars = chars + char
-                    elif marker == 1:
-                        marker = 0
-                tablelist.append(int(chars))
-                i3 = 0
-                while i3 < len(tablelist):
-                    if tablelist[i3] in replacements:
-                        tablelist[i3] = replacements[tablelist[i3]]
-                    i3 += 1
-                table[i2] = tablelist
-                    
-            i2 += 1
+        if table != ":":
+            i2 = 0
+            for letter in table[5]:
+                if letter == "1":
+                    table[i2] = int(table[i2])
+                    if table[i2] in replacements:
+                        table[i2] = replacements[table[i2]]
+                elif letter == "L":
+                    marker = 1
+                    tablelist = []
+                    chars = ""
+                    i = 0
+                    for char in table[i2]:
+                        if marker == 0:
+                            if char == ">":
+                                tablelist.append(int(chars))
+                                chars = ""
+                            else:
+                                i += 1
+                                chars = chars + char
+                        elif marker == 1:
+                            marker = 0
+                    tablelist.append(int(chars))
+                    i3 = 0
+                    while i3 < len(tablelist):
+                        if tablelist[i3] in replacements:
+                            tablelist[i3] = replacements[tablelist[i3]]
+                        i3 += 1
+                    table[i2] = tablelist
+                        
+                i2 += 1
     spawnedEnts = []
-    
     for table in loadtablesuper:
-        ent = ents.create(table[0])
-        ent.calculatePosition()
-        
-        if useSID:
-            ent.setSID(int(table[1]))
-        #else:
-        #    ent.setPID(int(table[1]))
-        
-        spawnedEnts.append(ent)
+        if table != ":":
+            ent = ents.create(table[0])
+            ent.calculatePosition()
+            if useSID:
+                ent.setSID(int(table[1]))
+                if ent.classname == "Creature":
+                    if CCL != None:
+                        ents.setCreatureControlLink(ent)
+            spawnedEnts.append(ent)
+        else:
+            ents.p_entity_array_append(None)
+            
     i = 0
+    ie = 0
     while i < len(loadtablesuper):
-        ent = spawnedEnts[i]
         table = loadtablesuper[i]
-        
-        deref = None
-        if useSID: deref = ents.SIDToEnt
-        else: deref = ents.PIDToEnt
-        ent.enterData(table, deref)
-        
-        if ent.classname == "Creature":
-            ents.setCreatureControlLink(ent)
+        if table != ":":
+            ent = spawnedEnts[ie]
+            
+            deref = None
+            if useSID: deref = ents.SIDToEnt
+            else: deref = ents.PIDToEnt
+            ent.enterData(table, deref)
+            
+            #if ent.classname == "Creature":
+            #    ents.setCreatureControlLink(ent)
+            ie += 1
         i += 1
     
     i = 0
+    ie = 0
     while i < len(loadtablesuper):
-        ent = spawnedEnts[i]
         table = loadtablesuper[i]
-        
-        if useSID:
-            ent.setparent_no_translation(ents.SIDToEnt(int(table[6])))
-        else:
-            ent.setparent_no_translation(ents.PIDToEnt(int(table[6])))
-        
+        if table != ":":
+            ent = spawnedEnts[ie]
+            
+            if useSID:
+                ent.setparent_no_translation(ents.SIDToEnt(int(table[6])))
+            else:
+                ent.setparent_no_translation(ents.PIDToEnt(int(table[6])))
+            ie += 1
         i += 1
+        
 
 def LoadGame():
     print("Loading...")
@@ -158,7 +173,6 @@ def LoadGame():
     
 def formatTiles(table, SIDmode):
     savetable = ents.getAllInTable(table)
-    print(savetable)
     savestring = ""
     for table in savetable:
         if table != None:

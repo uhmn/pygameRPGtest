@@ -25,12 +25,18 @@ class Creature(Particle):
         self.stepcounter2 = 0
         self.stepsounds = [sound.load("FR1.wav"),sound.load("FR2.wav"),sound.load("FR3.wav"),sound.load("FL1.wav"),sound.load("FL2.wav"),sound.load("FL3.wav")]
         self.inventory = [None,None]
+        self.movementEnabled = True
+        self.spinSpeed = 0
+        self.original = self.image
+    def setSprite(self, image1):
+        self.original = Particle.setSprite(self, image1)
     def onTick(self):
         self.checkShipCollisions()
         if self.moveCooldown > 0:
             self.moveCooldown = self.moveCooldown - 1
         Xmove = 0
         Ymove = 0
+        self.spin()
         if ents.getCreatureControlLink() == self and Globals.ViewMode == "1st":
             if self.moveCooldown <= 0:
                 self.stepcounter = self.stepcounter + 1
@@ -43,7 +49,7 @@ class Creature(Particle):
                 if Globals.keysHeld[4]:
                     Xmove = Xmove + 1
                 movement = abs(Xmove) + abs(Ymove)
-                if movement != 0:
+                if movement != 0 and self.movementEnabled:
                     if movement == 1:
                         self.moveCooldown = 10
                         self.lastMoveCooldown = 10
@@ -80,6 +86,24 @@ class Creature(Particle):
                         self.stepcounter2 = (self.stepcounter2 + 1) % 2
             windowSize = pg.display.get_window_size()
             self.position = (Globals.CamX + windowSize[0]/2,Globals.CamY + windowSize[1]/2)
+    def spin(self):
+        if self.spinSpeed != 0:
+            center = self.rect.center
+            self.rotation = self.rotation + self.spinSpeed
+            self.rotation = self.rotation % 360
+            if self.rotation < 270 and self.rotation > 180:
+                self.rotation = 270
+                self.spinSpeed = 0
+            rotate = pg.transform.rotate
+            self.image = rotate(self.original, self.rotation)
+            self.rect = self.image.get_rect(center=center)
+            if ents.getCreatureControlLink() == self:
+                ents.setCreatureControlLink(None)
+                Globals.ViewMode = "None"
+    def kill(self):
+        self.rotation = 0
+        self.spinSpeed = -15 #TODO: Add a network function for this, "method1", with movementEnabled as the check
+        self.movementEnabled = False
     def remove(self):
         Particle.remove(self)
         for ent in self.inventory:

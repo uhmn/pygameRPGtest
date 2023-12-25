@@ -32,8 +32,9 @@ ScreenY = 480
 Mouseover = "Game"
 Gravity = 9.8
 ActiveMenuItem = None
-GameServer = False
+GameServer = True
 CellSize = 50
+ShadowSurface = None
 
 GetEntityTypes = None
 

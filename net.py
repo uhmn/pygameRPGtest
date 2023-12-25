@@ -11,7 +11,8 @@ class MultiplayerClient(ConnectionListener):
     def update(self):
         connection.Pump()
         self.Pump()
-        connection.Send({"action" : "movement", "position" : ents.getCreatureControlLink().posOffset, "playerid" : self.playerid})
+        if ents.getCreatureControlLink() != None:
+            connection.Send({"action" : "movement", "position" : ents.getCreatureControlLink().posOffset, "playerid" : self.playerid})
             
     def connectToServer(self, Address):
         self.Connect(Address)
@@ -19,20 +20,31 @@ class MultiplayerClient(ConnectionListener):
         if len(Globals.ConnectedCreatures) > 0:
             Globals.ConnectedCreatures[data["playerid"]].setPosOffset(data["position"])
     def Network_connectsuccess(self, data):
-        print("Loading...")
-        ents.deleteAll()
-        slf.loadTiles(data["savefile"])        #Loading the server's savefile
-        ents.GameTick = 0
-        print("Loaded")
-        
-        self.playerid = data["playerid"]
-        i = 0
-        while i < self.playerid:
-            newplayer = ents.create("Creature")
-            newplayer.setPosOffset((0,0)) 
-            Globals.ConnectedCreatures.append(newplayer)
-            i += 1
-        Globals.ConnectedCreatures.append(ents.getCreatureControlLink())
+        if Globals.GameServer == False:
+            ents.setCreatureControlLink(None)
+            print("Connecting...")
+            ents.deleteAll()
+            slf.loadTiles(data["savefile"])        #Loading the server's savefile
+            ents.GameTick = 0
+            print("Connected")
+            
+            self.playerid = data["playerid"]
+            ent = None
+            print(data["c_numbers"])
+            for item in data["c_numbers"]:
+                ent = ents.PIDToEnt(item)
+                Globals.ConnectedCreatures.append(ent)
+            print(item)
+            ents.setCreatureControlLink(ent)
+            #Globals.ConnectedCreatures.append(ents.getCreatureControlLink())
+            '''
+            i = 0
+            while i < self.playerid:
+                newplayer = ents.create("Creature")
+                newplayer.setPosOffset((0,0)) 
+                Globals.ConnectedCreatures.append(newplayer)
+                i += 1
+                '''
         #i = 0
         #while ents.getTick() < data["gametick"]:
         #    ents.update()
@@ -54,13 +66,6 @@ class MultiplayerClient(ConnectionListener):
         if ent != None:
             fdict = ent.NetworkingMethods
             fdict[funcindex](ent, funcparams)
-    #def Network_new_ent(self, data):
-    #    pid = data["pid"]
-    #    parameter = data["parameter"]
-    #    myent = ents.create(parameter)
-    #    Globals.NetEnts.append({myent.getID() : pid})
-    #def Network_receive_ents(self, data):
-    #    pass
     def Network_newent(self, data):
         savestring = data["ents_string"]
         #check = ents.PIDToEnt(pid)
@@ -74,12 +79,13 @@ class MultiplayerClient(ConnectionListener):
    
 
 def NetAction(action, pid, parameter, *argv):
-    if pid != None:
-        origClient = 0
-        if len(argv) != 0:
-            origClient = argv[0]
-        Server.entAction(action, pid, parameter, origClient) #4
-        Client.entAction(action, pid, parameter) #1, starts here
+    if len(Globals.ConnectedsList) > 1 or Globals.GameServer == False:
+        if pid != None:
+            origClient = 0
+            if len(argv) != 0:
+                origClient = argv[0]
+            Server.entAction(action, pid, parameter, origClient) #4
+            Client.entAction(action, pid, parameter) #1, starts here
        
 
 
@@ -136,11 +142,16 @@ class BoxesServer(PodSixNet.Server.Server):
     def Connected(self, channel, addr):
         print('new connection:', channel)
         self.totalplayers += 1
-        savefile = slf.formatTiles(ents.get_p_entity_array(), False)
-        channel.Send({"action" : "connectsuccess", "position" : ents.getCreatureControlLink().posOffset, "playerid" : self.totalplayers, "gametick" : ents.getTick(), "savefile" : savefile})
         newplayer = ents.create("Creature")
         newplayer.setPosOffset((200, 200))
+        savefile = slf.formatTiles(ents.get_p_entity_array(), False)
+        savefile = str(newplayer.pid) + savefile
         Globals.ConnectedsList.append((newplayer, self.totalplayers, channel))
+        ctable = []
+        for item in Globals.ConnectedsList:
+            ctable.append(item[0].getPID())
+        channel.Send({"action" : "connectsuccess", "position" : ents.getCreatureControlLink().posOffset, "playerid" : self.totalplayers, "gametick" : ents.getTick(), "savefile" : savefile, "c_numbers" : ctable})
+
         for k in Globals.ConnectedsList:
             if k[1] != self.totalplayers:
                 channel2 = k[2]
@@ -149,6 +160,6 @@ class BoxesServer(PodSixNet.Server.Server):
 Client = MultiplayerClient()
 
 host, port="localhost", 8000
-#host = input("Input the server's IP")
-#port = int(input("Input the server's port"))
+host = input("Input the server's IP")
+port = int(input("Input the server's port"))
 Server = BoxesServer(localaddr=(host, int(port)))

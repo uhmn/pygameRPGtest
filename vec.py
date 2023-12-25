@@ -15,6 +15,10 @@ def sub(lis, num):
 def abs2(lis):
     return (abs(lis[0]), abs(lis[1]))
 
+def manhattan_magnitude(lis):
+    absvec = abs2(lis)
+    return absvec[0] + absvec[1]
+
 def largest(lis):
     t1 = abs(lis[0])
     t2 = abs(lis[1])

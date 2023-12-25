@@ -3,7 +3,7 @@ import vec
 import Globals
 import ents
 import net
-from pygamefunctions import load_image, InputEvents
+from pygamefunctions import load_image, InputEvents, DrawShadows
 
 import initialize_ents
 initialize_ents.initialize()
@@ -77,6 +77,11 @@ def main():
 
     screen.blit(background, (0, 0))
     pg.display.flip()
+    
+    Globals.ShadowSurface = pg.Surface(screen.get_size())
+    Globals.ShadowSurface = background.convert_alpha()
+    Globals.ShadowSurface.fill((0, 0, 0, 0))
+
 
     pt1 = ents.create("Vessel")
     pt1.setPos((500,400))
@@ -124,24 +129,25 @@ def main():
     ents.MenuPositions = [panel1.rect.center,panel2.rect.center]
     ents.HotbarSprites = [panel1, panel2]
     
-    testitem = ents.create("FloorItem")
-    testitem.setSprite("woodbox.png")
-    testitem.putInside(plytest, 0)
-    
-    testitem2 = ents.create("Gun")
-    testitem2.putInside(plytest, 1)
-    
     net.Server.start()
     
     if (setserver): 
         Globals.GameServer = True
-        net.Client.connectToServer(("localhost", 1)) #I have no idea why but for some reason if this doesn't run first when the server is starting it will cause it to break.
+        net.Client.connectToServer(("localhost", 1))
         print("Server")
     else: 
         Globals.GameServer = False
         
         net.Client.connectToServer((net.host, net.port))
         print("Client")
+        
+    if Globals.GameServer:
+        testitem = ents.create("FloorItem")
+        testitem.setSprite("woodbox.png")
+        testitem.putInside(plytest, 0)
+        
+        testitem2 = ents.create("Gun")
+        testitem2.putInside(plytest, 1)
     
     while going:
         clock.tick(60)
@@ -157,6 +163,7 @@ def main():
         net.Client.update()
         
         screen.blit(background, (0, 0))
+        #DrawShadows()
         ents.draw(screen)
         pg.display.flip()
         ents.incrementGameTick()

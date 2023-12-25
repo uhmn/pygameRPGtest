@@ -66,7 +66,7 @@ def InputEvents(keys, keysHeld, CreatureControlLink):
                 keysHeld[4] = True
             elif event.key == pg.K_RETURN:
                 keys[5] = True
-                if Globals.ViewMode == "Editor":
+                if Globals.ViewMode == "Editor" and CreatureControlLink != None:
                     Globals.ViewMode = "1st"
                 else:
                     Globals.ViewMode = "Editor"
@@ -81,9 +81,10 @@ def InputEvents(keys, keysHeld, CreatureControlLink):
                 Globals.debug -= 1
                 print(Globals.debug)
             elif event.key == pg.K_d:
-                print(ents.self.p_entity_array)
+                DrawShadows()
             elif event.key == pg.K_a:
-                print(ents.getCreatureControlLink().position)
+                print(ents.getCreatureControlLink().pid)
+                print(Globals.ConnectedCreatures)
         elif event.type == pg.MOUSEBUTTONDOWN:
             keys[0] = True
             keysHeld[0] = True
@@ -115,7 +116,7 @@ def InputEvents(keys, keysHeld, CreatureControlLink):
         
             if keysHeld[4] == True:
                 Globals.CamX = Globals.CamX + (16/(Globals.keysPressed/(Globals.keysPressed/1.5)))
-    if Globals.ViewMode == "1st" and CreatureControlLink != 0:
+    if Globals.ViewMode == "1st" and CreatureControlLink != 0 and CreatureControlLink != None:
         Globals.windowSize = pg.display.get_window_size()
         if CreatureControlLink.moveCooldown > 0:
             slider = CreatureControlLink.moveCooldown / CreatureControlLink.lastMoveCooldown
@@ -125,3 +126,146 @@ def InputEvents(keys, keysHeld, CreatureControlLink):
             Globals.CamX = CreatureControlLink.position[0]-Globals.windowSize[0]/2
             Globals.CamY = CreatureControlLink.position[1]-Globals.windowSize[1]/2
     return going
+
+def greatest(vector1, vector2):
+    x = vector1[0]
+    if vector2[0] > x: x = vector2[0]
+    y = vector1[1]
+    if vector2[1] > y: y = vector2[1]
+    return (x,y)
+
+def smallest(vector1, vector2):
+    x = vector1[0]
+    if vector2[0] < x: x = vector2[0]
+    y = vector1[1]
+    if vector2[1] < y: y = vector2[1]
+    return (x,y)
+
+def intersect_rect(l1, l2, rect_center):
+    rr = 16
+    r_right  = vec.add_2(rect_center, (rr,0))[0]
+    r_left   = vec.add_2(rect_center, (-rr,0))[0]
+    r_top    = vec.add_2(rect_center, (0,rr))[1]
+    r_bottom = vec.add_2(rect_center, (0,-rr))[1]
+    l_right  = greatest(l1, l2)[0]
+    l_left   = smallest(l1, l2)[0]
+    l_top    = greatest(l1, l2)[1]
+    l_bottom = smallest(l1, l2)[1]
+    linewidth = abs(l_right-l_left)
+    def xty(middleX):
+        if linewidth == 0:  ratio = 1
+        else:               ratio = (middleX-l_left) / linewidth
+        return (l_top*(1-ratio))+(l_bottom*ratio)
+    linepointY_left  = xty(r_left)
+    linepointY_right = xty(r_right)
+    if (linepointY_left > r_bottom and linepointY_left < r_top) or (linepointY_right > r_bottom and linepointY_right < r_top):
+        return True
+    else:
+        return False
+    
+def draw2(point1, point2, surface, illumPoint):
+    pd1 = vec.sub_2(point1, illumPoint)
+    pd2 = vec.sub_2(point2, illumPoint)
+    pd1 = vec.mult(pd1, 8)
+    pd2 = vec.mult(pd2, 8)
+    pd1 = vec.add_2(pd1, point1)
+    pd2 = vec.add_2(pd2, point2)
+    points = []
+    points.append(point1)
+    points.append(point2)
+    points.append(pd2)
+    points.append(pd1)
+    
+    pg.draw.polygon(surface, pg.Color(0,0,0, 128), points)
+repeatcount = 0
+#allpoints = []
+def DrawShadows():
+    global repeatcount
+    #global allpoints
+    
+
+    
+    illumPoint = ents.getCreatureControlLink()
+    if illumPoint != None:
+        illumPoint = illumPoint.rect.center
+            
+        repeatcount += 1
+        if repeatcount > 2:
+            repeatcount = 0
+            
+            surface = Globals.ShadowSurface
+            Globals.ShadowSurface.fill((0, 0, 0, 0))
+            #allpoints = []
+            vessel_list = ents.getallvessels()
+            wall_list = []
+            exemptWallList = []
+            visWallList = []
+            for vessel in vessel_list:
+                for ent in vessel.childs:
+                    if ent.classname == "Tile":
+                        if ent.tileSpriteData(2) == 1:
+                            wall_list.append(ent)
+            for wall in wall_list:
+                rect_center = wall.rect.center
+                TL = vec.add_2(rect_center, (-16,-16))
+                TR = vec.add_2(rect_center, (16,-16))
+                BL = vec.add_2(rect_center, (-16,16))
+                BR = vec.add_2(rect_center, (16,16))
+                
+                def checkall(startpoint):
+                    for wall2 in wall_list:
+                        rect2_center = wall2.rect.center
+                        if intersect_rect(startpoint, illumPoint, rect2_center):
+                            return 1
+                    return 0
+                TLO = checkall(TL)
+                TRO = checkall(TR)
+                BLO = checkall(BL)
+                BRO = checkall(BR)
+                
+                obstructions = TLO+TRO+BLO+BRO
+                if obstructions < 4:
+                    visWallList.append(wall)
+                def draw(point1, point2):
+                    #allpoints.append((point1, point2))
+                    
+                    pd1 = vec.sub_2(point1, illumPoint)
+                    pd2 = vec.sub_2(point2, illumPoint)
+                    pd1 = vec.mult(pd1, 8)
+                    pd2 = vec.mult(pd2, 8)
+                    pd1 = vec.add_2(pd1, point1)
+                    pd2 = vec.add_2(pd2, point2)
+                    
+                    points = []
+                    points.append(point1)
+                    points.append(point2)
+                    points.append(pd2)
+                    points.append(pd1)
+                    #allpoints.append(points)
+                    
+                    pg.draw.polygon(surface, pg.Color(0,0,0, 128), points)
+                if TLO+TRO != 3: draw(TL, TR)
+                if TRO+BRO != 3: draw(TR, BR)
+                if BLO+BRO != 3: draw(BL, BR)
+                if BLO+TLO != 3: draw(BL, TL)
+            #if len(points) > 2:
+            #    pg.draw.polygon(surface, pg.Color(0,0,0, 128), points)
+       # for points in allpoints:
+        #    draw2(points[0], points[1], surface, illumPoint)
+            #pg.draw.polygon(surface, pg.Color(0,0,0, 128), points)
+
+            
+    '''
+    wall_list = ents.getwalllayer().sprites()
+    for item in wall_list:
+        rect_center = item.rect.center
+        TL = vec.add_2(rect_center, (-16,-16))
+        TR = vec.add_2(rect_center, (16,-16))
+        BL = vec.add_2(rect_center, (-16,16))
+        BR = vec.add_2(rect_center, (16,16))
+        points = []
+        points.append(TL)
+        points.append(TR)
+        points.append(BL)
+        pg.draw.polygon(layer, pg.Color(0,0,0), points)
+    '''
